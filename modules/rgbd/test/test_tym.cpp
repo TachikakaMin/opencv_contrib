@@ -6,11 +6,8 @@
 //  Copyright © 2016 Cedric Leblond Menard. All rights reserved.
 //
 
-//#include <iostream>
-//#include <opencv2/core/core.hpp>
-//#include <opencv2/highgui/highgui.hpp>
-//#include "PLYData.hpp"
 #include "test_precomp.hpp"
+#include "opencv2/surface_matching/ppf_helpers.hpp"
 
 namespace opencv_test { namespace {
 //using namespace cv;
@@ -31,11 +28,13 @@ protected:
             // 3D coordinates matrix (Nx3; x,y,z floats format),
             // color associated with each vertex (coordinate matrix) OpenCV BGR format (3 channel Nx1 mat),
             // Path to input file
-
-            pcseg::getPlyFile(points, colors, "pcseg/living-room.ply");
-
+            std::string filename_tmp = ts->get_data_path() + "rgbd/pcseg/living-room.ply";
+            ts->printf(cvtest::TS::LOG, "\n%s", filename_tmp.c_str());
+            const char* filename = filename_tmp.c_str();
+            points = cv::ppf_match_3d::loadPLYSimple(filename, 1);
+//            pcseg::getPlyFile(points, colors, "pcseg/living-room.ply");
             // Data can be accessed using "points" and "colors" matrices
-            std::cout << points << colors; // Remove this line for large datasets
+            std::cout << points.dims; // Remove this line for large datasets
 
 //            // Export data to see
 //            // 3D coordinate matrix to output, Color matrix to output, Output file name/path, Output format, can be PLY_ASCII, PLY_BIGEND or PLY_LITEND
@@ -50,7 +49,7 @@ protected:
 };
 
 
-TEST(Rgbd_DepthTo3d, compute)
+TEST(Rgbd_TYM, compute)
 {
     CV_RgbdPLYDataInputTest test;
     test.safe_run();
