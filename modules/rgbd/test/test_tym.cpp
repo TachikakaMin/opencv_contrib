@@ -22,7 +22,7 @@ public:
 protected:
     void
     run(int) {
-        try {
+//        try {
             cv::Mat points, colors;
 
             // 3D coordinates matrix (Nx3; x,y,z floats format),
@@ -41,9 +41,9 @@ protected:
 //            DataExporter exporter(points, colors, "output_test.ply", PLY_ASCII);
 //            exporter.exportToFile();
 
-        } catch (...) {
-            ts->set_failed_test_info(cvtest::TS::FAIL_MISMATCH);
-        }
+//        } catch (...) {
+//            ts->set_failed_test_info(cvtest::TS::FAIL_MISMATCH);
+//        }
         ts->set_failed_test_info(cvtest::TS::OK);
     }
 };
