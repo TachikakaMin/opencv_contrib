@@ -6,6 +6,8 @@
 #define OPENCV_CUR_SEG_HPP
 
 #include <vector>
+#include <queue>
+#include "opencv2/ml.hpp"
 
 namespace cv
 {
