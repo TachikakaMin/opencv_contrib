@@ -34,7 +34,7 @@ protected:
             points = cv::ppf_match_3d::loadPLYSimple(filename, 1);
 //            pcseg::getPlyFile(points, colors, "pcseg/living-room.ply");
             // Data can be accessed using "points" and "colors" matrices
-            std::cout << points.dims; // Remove this line for large datasets
+            std::cout << points.size() << std::endl; // Remove this line for large datasets
 
 //            // Export data to see
 //            // 3D coordinate matrix to output, Color matrix to output, Output file name/path, Output format, can be PLY_ASCII, PLY_BIGEND or PLY_LITEND
