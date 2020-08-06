@@ -17,19 +17,19 @@ namespace pcseg
         std::vector<float> curvatures;
         for (int i=0; i<len;i++)
         {
-            std::vector<Point3d> nearPoints;
+            std::vector<Point3f> nearPoints;
             nearPoints.clear();
             for (int j=0;j<len;j++)
             {
-                Point3d p(points.at<float>(0,i), points.at<float>(1,i), points.at<float>(2,i));
-                Point3d q(points.at<float>(0,j), points.at<float>(1,j), points.at<float>(2,j));
+                Point3f p(points.at<float>(0,i), points.at<float>(1,i), points.at<float>(2,i));
+                Point3f q(points.at<float>(0,j), points.at<float>(1,j), points.at<float>(2,j));
                 if (norm(Mat(p), Mat(q)) < r)
                     nearPoints.push_back(q);
             }
-            printf("%lu\n",nearPoints.size());
-            PCA pca(Mat(nearPoints), noArray(), 0);
-            printf("233\n");
-            std::cout<<pca.eigenvalues.size()<<std::endl;
+
+            Mat pointMat = Mat(nearPoints).reshape(1);
+            PCA pca(pointMat, Mat(), 0);
+            std::cout<<pca.eigenvalues<<std::endl;
             int size = pca.eigenvalues.size().height;
             float a = pca.eigenvalues.at<float>(0);
             float b = pca.eigenvalues.at<float>(size/2);
@@ -40,8 +40,29 @@ namespace pcseg
     }
 
 
-    std::vector<int> planarSegments(Mat& points, Mat& normal, std::vector<float>& curvatures, float& thetaThreshold, float& curvatureThreshold)
+    std::vector<int> planarSegments(
+            Mat& pointsWithNormal,
+            std::vector<float>& curvatures,
+            float& thetaThreshold,
+            float& curvatureThreshold)
     {
+
+        std::vector<Point3f> points;
+        std::vector<Point3f> normal;
+        int len = pointsWithNormal.size().height;
+        for (int i=0;i<len;i++)
+        {
+            Point3f p(pointsWithNormal.at<float>(0,i), pointsWithNormal.at<float>(1,i), pointsWithNormal.at<float>(2,i));
+            points.push_back(p);
+            Point3f q(pointsWithNormal.at<float>(3,i), pointsWithNormal.at<float>(4,i), pointsWithNormal.at<float>(5,i));
+            normal.push_back(q);
+        }
+
+
+        flann::KDTreeIndexParams indexParams;
+        flann::Index kdtree(Mat(points).reshape(1), indexParams);
+
+
         int isSegCount = 0;
         std::queue<int> q;
         std::vector<int> isSeg;
@@ -57,13 +78,21 @@ namespace pcseg
                 q.pop();
             }
             if (!isSeg[seedPointId]) isSeg[seedPointId] = seedPointId;
-            std::vector<int> kNN = kNearestNeighbour(k, points, seedPointId);
-            for (int i=0;i<kNN.size();i++)
-                if (!isSeg[kNN[i]])
-                    if (arccos(points[kNN[i]], points[seedPointId]) < thetaThreshold)
+
+
+            vector<float> query;
+            query.push_back(pnt.x); //Insert the 2D point we need to find neighbours to the query
+            query.push_back(pnt.y); //Insert the 2D point we need to find neighbours to the query
+            vector<int> indices;
+            vector<float> dists;
+            kdtree.radiusSearch(query, indices, dists, range, numOfPoints);
+
+            for (int i=0;i<indices.size();i++)
+                if (!isSeg[indices[i]])
+                    if (arccos(points[indices[i]], points[seedPointId]) < thetaThreshold)
                     {
-                        isSeq[kNN[i]] = seedPointId;
-                        if (curvatures[kNN[i]] < curvatureThreshold) q.push(kNN[i]);
+                        isSeq[indices[i]] = seedPointId;
+                        if (curvatures[indices[i]] < curvatureThreshold) q.push(indices[i]);
                     }
         }
         return isSeg;
