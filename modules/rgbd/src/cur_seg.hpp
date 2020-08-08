@@ -7,19 +7,25 @@
 
 #include <vector>
 #include <queue>
-#include "opencv2/ml.hpp"
+#include <queue>
+#include <cmath>
+#include <vector>
+#include <opencv2/surface_matching/ppf_helpers.hpp>
+#include <opencv2/core/mat.hpp>
+
 
 namespace cv
 {
 namespace pcseg
 {
-    // INPUT:
-    //  3D point cloud made of points pi (1st) with normals ni(2nd) and curvatures ci(3rd)
-    //  4th: angle threshold
-    //  5th: curvature threshold
-    // OUTPUT:
-    //  seg index for each point
-    std::vector<int> planarSegments(Mat , Mat , Mat , double , double);
+    float angleBetween(const Point3f& , const Point3f&);
+    std::vector<float> calCurvatures(Mat& , int);
+    std::vector<int> planarSegments(
+            Mat&,
+            std::vector<float>&,
+            int,
+            float ,
+            float );
 }
 }
 

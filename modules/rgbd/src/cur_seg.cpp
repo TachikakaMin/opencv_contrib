@@ -10,24 +10,55 @@ namespace cv
 namespace pcseg
 {
 
-    std::vector<float> calCurvatures(Mat& points, float r)
+    float angleBetween(const Point3f &v1, const Point3f &v2)
+    {
+        float len1 = sqrt(v1.x * v1.x + v1.y * v1.y);
+        float len2 = sqrt(v2.x * v2.x + v2.y * v2.y);
+        float dot = v1.x * v2.x + v1.y * v2.y;
+        float a = dot / (len1 * len2);
+
+        if (a >= 1.0)
+            return 0.0;
+        else if (a <= -1.0)
+            return M_PI;
+        else
+            return acos(a); // 0..PI
+    }
+
+    std::vector<float> calCurvatures(Mat& pointsWithNormal, int k)
     {
 
-        int len = points.size().height;
+        std::vector<Point3f> points;
+        std::vector<Point3f> normal;
+        int len = pointsWithNormal.size().height;
+        for (int i=0;i<len;i++)
+        {
+            Point3f p(pointsWithNormal.at<float>(0,i), pointsWithNormal.at<float>(1,i), pointsWithNormal.at<float>(2,i));
+            points.push_back(p);
+            Point3f q(pointsWithNormal.at<float>(3,i), pointsWithNormal.at<float>(4,i), pointsWithNormal.at<float>(5,i));
+            normal.push_back(q);
+        }
+
         std::vector<float> curvatures;
+        flann::KDTreeIndexParams indexParams;
+        flann::Index kdtree(Mat(points).reshape(1), indexParams);
         for (int i=0; i<len;i++)
         {
+            std::vector<float> query;
+            query.push_back(points[i].x);
+            query.push_back(points[i].y);
+            query.push_back(points[i].z);
+            std::vector<int> indices;
+            std::vector<float> dists;
+            kdtree.knnSearch(query, indices, dists, k);
+
+
             std::vector<Point3f> nearPoints;
-            nearPoints.clear();
-            for (int j=0;j<len;j++)
-            {
-                Point3f p(points.at<float>(0,i), points.at<float>(1,i), points.at<float>(2,i));
-                Point3f q(points.at<float>(0,j), points.at<float>(1,j), points.at<float>(2,j));
-                if (norm(Mat(p), Mat(q)) < r)
-                    nearPoints.push_back(q);
-            }
+            nearPoints.push_back(points[i]);
+            for (int j=0;j<indices.size();j++) nearPoints.push_back(points[indices[j]]);
 
             Mat pointMat = Mat(nearPoints).reshape(1);
+            std::cout<<nearPoints<<std::endl;
             PCA pca(pointMat, Mat(), 0);
             std::cout<<pca.eigenvalues<<std::endl;
             int size = pca.eigenvalues.size().height;
@@ -43,8 +74,9 @@ namespace pcseg
     std::vector<int> planarSegments(
             Mat& pointsWithNormal,
             std::vector<float>& curvatures,
-            float& thetaThreshold,
-            float& curvatureThreshold)
+            int k,
+            float thetaThreshold,
+            float curvatureThreshold)
     {
 
         std::vector<Point3f> points;
@@ -65,37 +97,47 @@ namespace pcseg
 
         int isSegCount = 0;
         std::queue<int> q;
-        std::vector<int> isSeg;
-        while (isSegCount < points.rows) {
+        std::vector<bool> isSeg(len, 0 );
+        std::vector<int> idSeg(len);
+        for (int i=0;i<len;i++) idSeg[i] = i;
+
+        while (isSegCount < len || !q.empty()) {
             int seedPointId = -1;
             if (q.empty())
             {
-                for (int )
-                    seedPointId = max_idx;
+                float cur = 1e6;
+                for (int i=0;i<len;i++)
+                    if (cur > curvatures[i] && isSeg[i] == 0) {seedPointId = i; cur = curvatures[i];}
+                isSeg[seedPointId] = 1;
+                isSegCount++;
             }
             else {
                 seedPointId = q.front();
                 q.pop();
             }
-            if (!isSeg[seedPointId]) isSeg[seedPointId] = seedPointId;
 
-
-            vector<float> query;
-            query.push_back(pnt.x); //Insert the 2D point we need to find neighbours to the query
-            query.push_back(pnt.y); //Insert the 2D point we need to find neighbours to the query
-            vector<int> indices;
-            vector<float> dists;
-            kdtree.radiusSearch(query, indices, dists, range, numOfPoints);
-
+            std::vector<float> query;
+            query.push_back(points[seedPointId].x);
+            query.push_back(points[seedPointId].y);
+            query.push_back(points[seedPointId].z);
+            std::vector<int> indices;
+            std::vector<float> dists;
+            kdtree.knnSearch(query, indices, dists, k);
             for (int i=0;i<indices.size();i++)
-                if (!isSeg[indices[i]])
-                    if (arccos(points[indices[i]], points[seedPointId]) < thetaThreshold)
+            {
+                if (angleBetween(normal[seedPointId], normal[indices[i]]) < thetaThreshold)
+                {
+                    idSeg[indices[i]] = idSeg[seedPointId];
+                    if (curvatures[indices[i]] < curvatureThreshold && isSeg[indices[i]] == 0)
                     {
-                        isSeq[indices[i]] = seedPointId;
-                        if (curvatures[indices[i]] < curvatureThreshold) q.push(indices[i]);
+                        isSeg[indices[i]] = 1;
+                        isSegCount++;
+                        q.push(indices[i]);
                     }
+                }
+            }
         }
-        return isSeg;
+        return idSeg;
     }
 }
 }
