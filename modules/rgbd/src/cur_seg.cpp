@@ -9,7 +9,6 @@ namespace cv
 {
 namespace pcseg
 {
-
     float angleBetween(const Point3f &v1, const Point3f &v2)
     {
         float len1 = sqrt(v1.x * v1.x + v1.y * v1.y);
@@ -31,11 +30,13 @@ namespace pcseg
         std::vector<Point3f> points;
         std::vector<Point3f> normal;
         int len = pointsWithNormal.size().height;
+        int channel = pointsWithNormal.size().width;
+        if (channel != 6) CV_Error(Error::StsBadArg, String("No Normal Channel!"));
         for (int i=0;i<len;i++)
         {
-            Point3f p(pointsWithNormal.at<float>(0,i), pointsWithNormal.at<float>(1,i), pointsWithNormal.at<float>(2,i));
+            Point3f p(pointsWithNormal.at<float>(i,0), pointsWithNormal.at<float>(i,1), pointsWithNormal.at<float>(i,2));
             points.push_back(p);
-            Point3f q(pointsWithNormal.at<float>(3,i), pointsWithNormal.at<float>(4,i), pointsWithNormal.at<float>(5,i));
+            Point3f q(pointsWithNormal.at<float>(i,3), pointsWithNormal.at<float>(i,4), pointsWithNormal.at<float>(i,5));
             normal.push_back(q);
         }
 
@@ -58,9 +59,9 @@ namespace pcseg
             for (int j=0;j<indices.size();j++) nearPoints.push_back(points[indices[j]]);
 
             Mat pointMat = Mat(nearPoints).reshape(1);
-            std::cout<<nearPoints<<std::endl;
+            // std::cout<<nearPoints<<std::endl;
             PCA pca(pointMat, Mat(), 0);
-            std::cout<<pca.eigenvalues<<std::endl;
+            // std::cout<<pca.eigenvalues<<std::endl;
             int size = pca.eigenvalues.size().height;
             float a = pca.eigenvalues.at<float>(0);
             float b = pca.eigenvalues.at<float>(size/2);
@@ -82,11 +83,13 @@ namespace pcseg
         std::vector<Point3f> points;
         std::vector<Point3f> normal;
         int len = pointsWithNormal.size().height;
+        int channel = pointsWithNormal.size().width;
+        if (channel != 6) CV_Error(Error::StsBadArg, String("No Normal Channel!"));
         for (int i=0;i<len;i++)
         {
-            Point3f p(pointsWithNormal.at<float>(0,i), pointsWithNormal.at<float>(1,i), pointsWithNormal.at<float>(2,i));
+            Point3f p(pointsWithNormal.at<float>(i,0), pointsWithNormal.at<float>(i,1), pointsWithNormal.at<float>(i,2));
             points.push_back(p);
-            Point3f q(pointsWithNormal.at<float>(3,i), pointsWithNormal.at<float>(4,i), pointsWithNormal.at<float>(5,i));
+            Point3f q(pointsWithNormal.at<float>(i,3), pointsWithNormal.at<float>(i,4), pointsWithNormal.at<float>(i,5));
             normal.push_back(q);
         }
 
