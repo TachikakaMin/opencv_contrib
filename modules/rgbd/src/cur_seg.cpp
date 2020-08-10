@@ -11,11 +11,10 @@ namespace pcseg
 {
     float angleBetween(const Point3f &v1, const Point3f &v2)
     {
-        float len1 = sqrt(v1.x * v1.x + v1.y * v1.y);
-        float len2 = sqrt(v2.x * v2.x + v2.y * v2.y);
-        float dot = v1.x * v2.x + v1.y * v2.y;
+        float len1 = sqrt(v1.x * v1.x + v1.y * v1.y + v1.z * v1.z);
+        float len2 = sqrt(v2.x * v2.x + v2.y * v2.y + v2.z * v2.z);
+        float dot = v1.dot(v2);
         float a = dot / (len1 * len2);
-
         if (a >= 1.0)
             return 0.0;
         else if (a <= -1.0)
@@ -26,11 +25,11 @@ namespace pcseg
 
     std::vector<float> calCurvatures(Mat& pointsWithNormal, int k)
     {
-
         std::vector<Point3f> points;
         std::vector<Point3f> normal;
         int len = pointsWithNormal.size().height;
         int channel = pointsWithNormal.size().width;
+        printf("%d\n",len);
         if (channel != 6) CV_Error(Error::StsBadArg, String("No Normal Channel!"));
         for (int i=0;i<len;i++)
         {
@@ -39,29 +38,27 @@ namespace pcseg
             Point3f q(pointsWithNormal.at<float>(i,3), pointsWithNormal.at<float>(i,4), pointsWithNormal.at<float>(i,5));
             normal.push_back(q);
         }
-
+        printf("Build KDTree\n");fflush(stdout);
         std::vector<float> curvatures;
         flann::KDTreeIndexParams indexParams;
         flann::Index kdtree(Mat(points).reshape(1), indexParams);
+        printf("Build KDTree Done\n");fflush(stdout);
+
+        Mat querys = Mat(points).reshape(1);
+        Mat indices;
+        Mat dists;
+        flann::SearchParams params(32);
+        printf("kd tree search\n");fflush(stdout);
+        kdtree.knnSearch(querys, indices, dists, k, params);
+        printf("kd tree search end\n");fflush(stdout);
         for (int i=0; i<len;i++)
         {
-            std::vector<float> query;
-            query.push_back(points[i].x);
-            query.push_back(points[i].y);
-            query.push_back(points[i].z);
-            std::vector<int> indices;
-            std::vector<float> dists;
-            kdtree.knnSearch(query, indices, dists, k);
-
-
+            printf("%d\n",i);fflush(stdout);
             std::vector<Point3f> nearPoints;
-            nearPoints.push_back(points[i]);
-            for (int j=0;j<indices.size();j++) nearPoints.push_back(points[indices[j]]);
-
+            nearPoints.push_back(normal[i]);
+            for (int j=0;j<k;j++) nearPoints.push_back(normal[indices.at<int>(i,j)]);
             Mat pointMat = Mat(nearPoints).reshape(1);
-            // std::cout<<nearPoints<<std::endl;
             PCA pca(pointMat, Mat(), 0);
-            // std::cout<<pca.eigenvalues<<std::endl;
             int size = pca.eigenvalues.size().height;
             float a = pca.eigenvalues.at<float>(0);
             float b = pca.eigenvalues.at<float>(size/2);
@@ -141,6 +138,47 @@ namespace pcseg
             }
         }
         return idSeg;
+    }
+
+    bool planarMerge(Mat& pointsWithNormal ,
+                     std::vector<int>& idA,
+                     Point3f& normalA,
+                     int idACenter,
+                     double& timestepA,
+                     std::vector<int>& idB,
+                     Point3f& normalB,
+                     int idBCenter,
+                     float disThreshold)
+    {
+        std::vector<Point3f> points;
+        std::vector<Point3f> normal;
+        int len = pointsWithNormal.size().height;
+        int channel = pointsWithNormal.size().width;
+        if (channel != 6) CV_Error(Error::StsBadArg, String("No Normal Channel!"));
+        for (int i=0;i<len;i++)
+        {
+            Point3f p(pointsWithNormal.at<float>(i,0), pointsWithNormal.at<float>(i,1), pointsWithNormal.at<float>(i,2));
+            points.push_back(p);
+            Point3f q(pointsWithNormal.at<float>(i,3), pointsWithNormal.at<float>(i,4), pointsWithNormal.at<float>(i,5));
+            normal.push_back(q);
+        }
+        Point3f aCenter = points[idACenter];
+        Point3f bCenter = points[idBCenter];
+        for (int i=0;i<idB.size();i++)
+        {
+            Point3f h = points[idB[i]];
+            Point3f dis = aCenter - h;
+            if (dis.dot(dis) < disThreshold*disThreshold)
+            {
+                normalA = normalA*sqrt(aCenter.dot(aCenter)) + normalB*sqrt(bCenter.dot(bCenter));
+                normalA /= (sqrt(aCenter.dot(aCenter)) + sqrt(bCenter.dot(bCenter)));
+                for (int j=0;j<idB.size();j++) idA.push_back(idB[j]);
+                timestepA = 0;
+                idB.clear();
+                return true;
+            }
+        }
+        return false;
     }
 }
 }

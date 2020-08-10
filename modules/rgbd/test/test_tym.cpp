@@ -22,7 +22,7 @@ public:
 protected:
     void
     run(int) {
-//        try {
+        try {
             cv::Mat points, colors;
 
             // 3D coordinates matrix (Nx3; x,y,z floats format),
@@ -32,18 +32,11 @@ protected:
             ts->printf(cvtest::TS::LOG, "\n%s", filename_tmp.c_str());
             const char* filename = filename_tmp.c_str();
             points = cv::ppf_match_3d::loadPLYSimple(filename, 1);
-//            pcseg::getPlyFile(points, colors, "pcseg/living-room.ply");
-            // Data can be accessed using "points" and "colors" matrices
             std::cout << points.size() << std::endl; // Remove this line for large datasets
 
-//            // Export data to see
-//            // 3D coordinate matrix to output, Color matrix to output, Output file name/path, Output format, can be PLY_ASCII, PLY_BIGEND or PLY_LITEND
-//            DataExporter exporter(points, colors, "output_test.ply", PLY_ASCII);
-//            exporter.exportToFile();
-
-//        } catch (...) {
-//            ts->set_failed_test_info(cvtest::TS::FAIL_MISMATCH);
-//        }
+        } catch (...) {
+            ts->set_failed_test_info(cvtest::TS::FAIL_MISMATCH);
+        }
         ts->set_failed_test_info(cvtest::TS::OK);
     }
 };

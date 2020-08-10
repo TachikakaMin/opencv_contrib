@@ -26,6 +26,15 @@ namespace pcseg
             int,
             float ,
             float );
+    bool planarMerge(Mat&  ,
+                     std::vector<int>& ,
+                     Point3f& ,
+                     int ,
+                     double& ,
+                     std::vector<int>& ,
+                     Point3f& ,
+                     int ,
+                     float );
 }
 }
 
