@@ -30,7 +30,13 @@ namespace pcseg
         int len = pointsWithNormal.size().height;
         int channel = pointsWithNormal.size().width;
         printf("%d\n",len);
-        if (channel != 6) CV_Error(Error::StsBadArg, String("No Normal Channel!"));
+        if (channel < 6)
+        {
+            Mat pointsWithNormal2;
+            ppf_match_3d::computeNormalsPC3d(pointsWithNormal, pointsWithNormal2, k, 0, Vec3f(0,0,0));
+            pointsWithNormal = pointsWithNormal2;
+            channel = pointsWithNormal.size().width;
+        }
         for (int i=0;i<len;i++)
         {
             Point3f p(pointsWithNormal.at<float>(i,0), pointsWithNormal.at<float>(i,1), pointsWithNormal.at<float>(i,2));
@@ -50,12 +56,13 @@ namespace pcseg
         flann::SearchParams params(32);
         printf("kd tree search\n");fflush(stdout);
         kdtree.knnSearch(querys, indices, dists, k, params);
+        std::cout<<indices.size()<<std::endl;
         printf("kd tree search end\n");fflush(stdout);
         for (int i=0; i<len;i++)
         {
-            printf("%d\n",i);fflush(stdout);
+            // printf("%d\n",i);fflush(stdout);
             std::vector<Point3f> nearPoints;
-            nearPoints.push_back(normal[i]);
+            // nearPoints.push_back(normal[i]);
             for (int j=0;j<k;j++) nearPoints.push_back(normal[indices.at<int>(i,j)]);
             Mat pointMat = Mat(nearPoints).reshape(1);
             PCA pca(pointMat, Mat(), 0);
