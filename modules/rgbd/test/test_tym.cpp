@@ -28,8 +28,8 @@ protected:
             // 3D coordinates matrix (Nx3; x,y,z floats format),
             // color associated with each vertex (coordinate matrix) OpenCV BGR format (3 channel Nx1 mat),
             // Path to input file
-            std::string filename_tmp = ts->get_data_path() + "rgbd/pcseg/living-room.ply";
-            ts->printf(cvtest::TS::LOG, "\n%s", filename_tmp.c_str());
+            std::string filename_tmp =  std::string(TS::ptr()->get_data_path()) + "rgbd/pcseg/living-room.ply";
+            ts->printf(cvtest::TS::LOG, "\n TYM:  %s\n", filename_tmp.c_str());
             const char* filename = filename_tmp.c_str();
             points = cv::ppf_match_3d::loadPLYSimple(filename, 1);
             std::cout << points.size() << std::endl; // Remove this line for large datasets
