@@ -35,6 +35,20 @@ namespace pcseg
                      Point3f& ,
                      int ,
                      float );
+    void growingPlanar(Mat& ,
+                       std::vector<std::vector<int> >& ,
+                       std::vector<Point3f>& ,
+                       std::vector<int>& ,
+                       std::vector<float>& ,
+                       Mat& ,
+                       std::vector<std::vector<int> >& ,
+                       std::vector<Point3f>& ,
+                       std::vector<int>& ,
+                       std::vector<float>& ,
+                       Point6f& ,
+                       float ,
+                       float ,
+                       float );
 }
 }
 

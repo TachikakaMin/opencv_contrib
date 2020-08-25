@@ -187,5 +187,36 @@ namespace pcseg
         }
         return false;
     }
+
+    void growingPlanar(Mat& newPointsWithNormal,
+                       std::vector<std::vector<int> >& idNs,
+                       std::vector<Point3f>& normalNs,
+                       std::vector<int>& idCenterNs,
+                       std::vector<float>& timestepNs,
+                       Mat& oldPointsWithNormal,
+                       std::vector<std::vector<int> >& idQs,
+                       std::vector<Point3f>& normalQs,
+                       std::vector<int>& idCenterQs,
+                       std::vector<float>& timestepQs,
+                       Point6f& curCameraPos,
+                       float thetaThreshold,
+                       float timestepThreshold,
+                       float timestepDisThreshold
+    )
+    {
+        for (int i=0;i<idNs.size();i++)
+        {
+            bool gotPlane = 0;
+            for (int j=0;j<idQs.size();j++)
+            {
+                if (!finalQ[i] && angleBetween(normalNs[i], normalQs[i]) < thetaThreshold)
+                {
+                    std::vector<int> indicesConcave;
+                    indicesConcave = getConcaveHull(newPointsWithNormal, idNs[i]);
+                    gotPlane = planarMerge()
+                }
+            }
+        }
+    }
 }
 }
