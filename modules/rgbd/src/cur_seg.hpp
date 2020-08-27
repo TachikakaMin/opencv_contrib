@@ -33,24 +33,30 @@ namespace pcseg
     bool planarMerge(
             std::vector<Point3f>& ,
             std::vector<Point3f>& ,
-            float& ,
             std::vector<Point3f>& ,
             std::vector<Point3f>& ,
             float );
-    void growingPlanar(Mat& ,
-                       std::vector<std::vector<int> >& ,
-                       std::vector<Point3f>& ,
-                       std::vector<int>& ,
-                       std::vector<float>& ,
-                       Mat& ,
-                       std::vector<std::vector<int> >& ,
-                       std::vector<Point3f>& ,
-                       std::vector<int>& ,
-                       std::vector<float>& ,
-                       Point6f& ,
-                       float ,
-                       float ,
-                       float );
+    bool growingPlanar(
+            std::vector< std::vector<Point3f> >& ,
+            std::vector< std::vector<Point3f> >& ,
+            std::vector<float>& ,
+            std::vector< std::vector<Point3f> >& ,
+            std::vector< std::vector<Point3f> >& ,
+            std::vector<float>& ,
+            Point3f& ,
+            float ,
+            float ,
+            float ,
+            std::vector< pair<int,int> >&
+    );
+    bool mergeCloseSegments(
+            std::vector< pair< std::vector<Point3f> ,std::vector<Point3f> > >& ,
+            std::vector< pair< std::vector<Point3f> ,std::vector<Point3f> > >& ,
+            std::vector<int> ;
+            std::vector< std::vector<Point3f> >& ,
+            std::vector< std::vector<Point3f> >& ,
+            std::vector<float>&
+    );
 }
 }
 

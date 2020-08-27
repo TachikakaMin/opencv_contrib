@@ -60,7 +60,7 @@ namespace pcseg
         flann::SearchParams params(32);
         printf("kd tree search\n");fflush(stdout);
         kdtree.knnSearch(querys, indices, dists, k, params);
-        std::cout<<indices.size()<<std::endl;
+            std::cout<<indices.size()<<std::endl;
         printf("kd tree search end\n");fflush(stdout);
         for (int i=0; i<len;i++)
         {
@@ -87,14 +87,14 @@ namespace pcseg
     }
 
     bool planarSegments(
-            Mat& pointsWithNormal,
-            std::vector<float>& curvatures,
-            int k,
-            float thetaThreshold,
-            float curvatureThreshold,
-            std::vector<std::vector<Point3f> >& vecRetPoints,
-            std::vector<std::vector<Point3f> >& vecRetNormals
-    )
+        Mat& pointsWithNormal,
+        std::vector<float>& curvatures,
+        int k,
+        float thetaThreshold,
+        float curvatureThreshold,
+        std::vector<std::vector<Point3f> >& vecRetPoints,
+        std::vector<std::vector<Point3f> >& vecRetNormals
+        )
     {
 
         std::vector<Point3f> points;
@@ -149,11 +149,11 @@ namespace pcseg
                 {
                     idSeg[indices[i]] = idSeg[seedPointId];
                     if (curvatures[indices[i]] < curvatureThreshold && isSeg[indices[i]] == 0)
-                    {
-                        isSeg[indices[i]] = 1;
-                        isSegCount++;
-                        q.push(indices[i]);
-                    }
+                        {
+                            isSeg[indices[i]] = 1;
+                            isSegCount++;
+                            q.push(indices[i]);
+                        }
                 }
             }
         }
@@ -189,19 +189,18 @@ namespace pcseg
     }
 
     bool planarMerge(
-            std::vector<Point3f>& pointsA,
-            std::vector<Point3f>& normalsA,
-            float& timestepA,
-            std::vector<Point3f> pointsB,
-            std::vector<Point3f> normalsB,
-            float disThreshold)
+        std::vector<Point3f>& pointsA,
+        std::vector<Point3f>& normalsA,
+        std::vector<Point3f>& pointsB,
+        std::vector<Point3f>& normalsB,
+        float disThreshold = 0.08)
     {
         Point3f aCenter = pointsA[0];
         Point3f bCenter = pointsB[0];
         Point3f& normalA = normalsA[0];
         Point3f& normalB = normalsB[0];
         std::vector<int> indicesConcaveB;
-        indicesConcaveB =
+        convexHull(Mat(pointsB[i]), indicesConcaveB);
         for (int i=0;i<indicesConcaveB.size();i++)
         {
             Point3f h = pointsB[indicesConcaveB[i]];
@@ -212,74 +211,76 @@ namespace pcseg
                 normalA /= (sqrt(aCenter.dot(aCenter)) + sqrt(bCenter.dot(bCenter)));
                 for (int j=1;j<pointsB.size();j++)
                 {
-                    idA.push_back(idB[j]);
+                    pointsA.push_back(pointsB[i]);
+                    normalsA.push_back(normalsB[i]);
                 }
-                timestepA = 0;
-                idB.clear();
+                pointsB.clear();
+                normalsB.clear();
                 return true;
             }
         }
         return false;
     }
 
-    void growingPlanar(Mat& newPointsWithNormal,
-                       std::vector<std::vector<int> >& idNs,
-                       std::vector<Point3f>& normalNs,
-                       std::vector<int>& idCenterNs,
-                       std::vector<float>& timestepNs,
-                       Mat& oldPointsWithNormal,
-                       std::vector<std::vector<int> >& idQs,
-                       std::vector<Point3f>& normalQs,
-                       std::vector<int>& idCenterQs,
-                       std::vector<float>& timestepQs,
-                       Point3f& curCameraPos,
-                       float thetaThreshold,
-                       float timestepThreshold,
-                       float timestepDisThreshold
-    )
+    bool growingPlanar(
+        std::vector< std::vector<Point3f> >& setPointsN,
+        std::vector< std::vector<Point3f> >& setNormalsN,
+        std::vector<float>& timestepsN,
+        std::vector< std::vector<Point3f> >& setPointsQ,
+        std::vector< std::vector<Point3f> >& setNormalsQ,
+        std::vector<float>& timestepsQ,
+        Point3f& curCameraPos,
+        float thetaThreshold,
+        float timestepThreshold,
+        float timestepDisThreshold,
+        std::vector< pair<int,int> >& retS
+        )
     {
-        for (int i=0;i<idNs.size();i++)
+        retS.clear();
+        std::vector<bool> finalQ(setPointsQ.size(), 0);
+        std::vector< pair<int,int> > S;
+
+        int sizeN = setPointsN.size();
+        int sizeQ = setPointsQ.size();
+
+        for (int i=0; i<sizeN; i++)
         {
             std::vector<int> R;
             R.clear();
             bool gotPlane = 0;
-            for (int j=0;j<idQs.size();j++)
+            for (int j=0; j<sizeQ; j++)
             {
-                if (!finalQ[i] && angleBetween(normalNs[i], normalQs[j]) < thetaThreshold)
+                if (!finalQ[j] && angleBetween(setNormalsN[i][0], setNormalsQ[j][0]) < thetaThreshold)
                 {
-                    std::vector<int> indicesConcave;
-                    indicesConcave = getConcaveHull(newPointsWithNormal, idNs[i]);
-                    gotPlane = planarMerge();
+                    gotPlane = planarMerge(setPointsQ[j],
+                                           setNormalsQ[j],
+                                           setPointsN[i],
+                                           setNormalsN[i]);
                     if (gotPlane) break;
-                    else R.push_back(j);
+                        else R.push_back(j);
                 }
             }
 
             if (!gotPlane)
             {
-                kdtree N ic;
-                timestepNs[i] = 0;
-                idQs.push_back(idNs[i]);
-                normalQs.push_back(normalNs[i]);
-                idCenterQs.push_back(idCenterNs[i]);
-                timestepQs.push_back(timestepNs[i]);
-
-
-
+                timestepsN[i] = 0;
+                setPointsQ.push_back(setPointsN[i]);
+                setNormalsQ.push_back(setNormalsN[i]);
+                for (int j=0;j<R.size();j++)
+                    S.push_back(make_pair(i, R[j]))
             }
-            removeNicFromM;
+            // TODO remove from M
         }
 
-        for (int i=0;i<idQs.size();i++)
+        for (int i=0;i<sizeQ;i++)
         {
-            timestepQs[i] ++;
-            if (timestepQs[i] > timestepThreshold)
+            timestepsQ[i] ++;
+            if (timestepsQ[i] > timestepThreshold)
             {
                 finalQ[i] = 1;
-                std::vector<int> ind = idQs[i];
-                for (int j=0;j<ind.size();j++)
+                for (int j=0;j<setPointsQ[i].size();j++)
                 {
-                    Point3f p = curCameraPos - points[ind[j]];
+                    Point3f p = curCameraPos - setPointsQ[i][j];
                     if (p.dot(p) < timestepDisThreshold)
                     {
                         finalQ[i] = 0;
@@ -288,6 +289,79 @@ namespace pcseg
                 }
             }
         }
+        for (int i=0; i<S.size(); i++)
+            if (finalQ[S[i].first] + finalQ[S[i].second] == 0)
+                retS.push_back(S[i]);
+        return true;
+    }
+
+
+
+    bool mergeCloseSegments(
+        std::vector< pair< std::vector<Point3f> ,std::vector<Point3f> > >& pointsS,
+        std::vector< pair< std::vector<Point3f> ,std::vector<Point3f> > >& normalsS,
+        std::vector<int> alphaS;
+        std::vector< std::vector<Point3f> >& setPointsQ,
+        std::vector< std::vector<Point3f> >& setNormalsQ,
+        std::vector<float>& timestepsQ
+        )
+    {
+        for (int i=0;i<pointsS.size();i++)
+        {
+            bool gotPlane = 0;
+            std::vector<Point3f>& pointsS1 = pointsS[i].first;
+            std::vector<Point3f>& pointsS2 = pointsS[i].second;
+            std::vector<Point3f>& normalsS1 = normalsS[i].first;
+            std::vector<Point3f>& normalsS2 = normalsS[i].second;
+            if (pointsS1.size() > pointsS2.size())
+            {
+                swap(pointsS1, pointsS2);
+                swap(normalsS1, normalsS2);
+            }
+            alphaS[i] = pointsS1.size();
+            gotPlane = planarMerge(pointsS2,
+                                   normalsS2,
+                                   pointsS1,
+                                   normalsS1);
+            if (gotPlane)
+            {
+                for (int j=0; j<setPointsQ.size(); j++)
+                {
+                    // TODO
+                    if (setPointsQ[j] == pointsS1)
+                    {
+                        setPointsQ[j].clear();
+                        break;
+                    }
+                }
+
+                for (int j=0; j<pointsS.size(); j++)
+                {
+                    if (i == j) continue;
+                    std::vector<Point3f>& pointsSJ1 = pointsS[i].first;
+                    std::vector<Point3f>& pointsSJ2 = pointsS[i].second;
+                    std::vector<Point3f>& normalsSJ1 = normalsS[i].first;
+                    std::vector<Point3f>& normalsSJ2 = normalsS[i].second;
+                    // TODO
+                    if (pointsS1 == pointsSJ1)
+                    {
+                        pointsSJ1 = pointsS2;
+                        normalsSJ1 = normalsS2;
+                    }
+                    // TODO
+                    else if (pointsSJ2 == pointsS1)
+                    {
+                        pointsSJ2 = pointsS2;
+                        normalsSJ2 = normalsS2;
+                    }
+                    // TODO
+                    if (pointsSJ1 == pointsSJ2) {delete pointsS[j];delete normalsS[j];}
+                }
+                // TODO
+                delete pointsS[i];delete normalsS[i];
+            }
+        }
+        return true;
     }
 
 }
