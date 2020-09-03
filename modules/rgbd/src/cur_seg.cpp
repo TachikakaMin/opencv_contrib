@@ -24,20 +24,26 @@ namespace pcseg
             return acos(a); // 0..PI
     }
 
-    std::vector<float> calCurvatures(Mat& pointsWithNormal, int k)
+
+    std::vector<float> calCurvatures(
+            Mat& pointsWithNormal,
+            int k,
+            std::vector<Point3f>& points,
+            std::vector<Point3f>& normal,
+            std::vector<float>& curvatures
+    )
     {
-        std::vector<Point3f> points;
-        std::vector<Point3f> normal;
+
         int len = pointsWithNormal.size().height;
         int channel = pointsWithNormal.size().width;
         printf("%d\n",len);
         if (channel < 6)
         {
             Mat pointsWithNormal2;
+            printf("computeNormalsPC3d\n");
             int x = ppf_match_3d::computeNormalsPC3d(pointsWithNormal, pointsWithNormal2, k, 0, Vec3f(0,0,0));
-            printf("computeNormalsPC3d: %d\n",x);
+            printf("computeNormalsPC3d Done! \n");
             pointsWithNormal = pointsWithNormal2;
-            // ppf_match_3d::writePLY(pointsWithNormal, "pickup_big_normal.ply");
             channel = pointsWithNormal.size().width;
             printf("channel: %d\n",channel);
         }
@@ -49,7 +55,6 @@ namespace pcseg
             normal.push_back(q);
         }
         printf("Build KDTree\n");fflush(stdout);
-        std::vector<float> curvatures;
         flann::KDTreeIndexParams indexParams;
         flann::Index kdtree(Mat(points).reshape(1), indexParams);
         printf("Build KDTree Done\n");fflush(stdout);
@@ -57,24 +62,26 @@ namespace pcseg
         Mat querys = Mat(points).reshape(1);
         Mat indices;
         Mat dists;
-        flann::SearchParams params(32);
+        flann::SearchParams params(16);
         printf("kd tree search\n");fflush(stdout);
+
         kdtree.knnSearch(querys, indices, dists, k, params);
-            std::cout<<indices.size()<<std::endl;
+
+        std::cout<<indices.size()<<std::endl;
         printf("kd tree search end\n");fflush(stdout);
         for (int i=0; i<len;i++)
         {
-            // printf("%d\n",i);fflush(stdout);
             std::vector<Point3f> nearPoints;
-            // nearPoints.push_back(normal[i]);
-            for (int j=0;j<k;j++) nearPoints.push_back(normal[indices.at<int>(i,j)]);
+            for (int j=0;j<k;j++) {
+                printf("(%d, %d)indices: %d\n",i,j ,indices.at<int>(j,i));
+                nearPoints.push_back(normal[indices.at<int>(j,i)]);
+            }
             Mat pointMat = Mat(nearPoints).reshape(1);
             PCA pca(pointMat, Mat(), 0);
             int size = pca.eigenvalues.size().height;
             float a = pca.eigenvalues.at<float>(0);
             float b = pca.eigenvalues.at<float>(size/2);
             float c = pca.eigenvalues.at<float>(size-1);
-            // std::cout<<c/(a+b+c)<<std::endl;
             curvatures.push_back(c/(a+b+c));
         }
         return curvatures;
@@ -83,33 +90,23 @@ namespace pcseg
     int findFather(std::vector<int>& v, int x)
     {
         if (v[x] != x) v[x] = findFather(v, v[x]);
-        return x;
+        return v[x];
     }
 
     bool planarSegments(
-        Mat& pointsWithNormal,
-        std::vector<float>& curvatures,
-        int k,
-        float thetaThreshold,
-        float curvatureThreshold,
-        std::vector<std::vector<Point3f> >& vecRetPoints,
-        std::vector<std::vector<Point3f> >& vecRetNormals
-        )
+            std::vector<Point3f>& points,
+            std::vector<Point3f>& normals,
+            std::vector<float>& curvatures,
+            int k,
+            float thetaThreshold,
+            float curvatureThreshold,
+            std::vector<std::vector<Point3f> >& vecRetPoints,
+            std::vector<std::vector<Point3f> >& vecRetNormals
+    )
     {
+        printf("planarSegments start!\n");
 
-        std::vector<Point3f> points;
-        std::vector<Point3f> normals;
-        int len = pointsWithNormal.size().height;
-        int channel = pointsWithNormal.size().width;
-        if (channel != 6) CV_Error(Error::StsBadArg, String("No Normal Channel!"));
-        for (int i=0;i<len;i++)
-        {
-            Point3f p(pointsWithNormal.at<float>(i,0), pointsWithNormal.at<float>(i,1), pointsWithNormal.at<float>(i,2));
-            points.push_back(p);
-            Point3f q(pointsWithNormal.at<float>(i,3), pointsWithNormal.at<float>(i,4), pointsWithNormal.at<float>(i,5));
-            normals.push_back(q);
-        }
-
+        int len = points.size();
 
         flann::KDTreeIndexParams indexParams;
         flann::Index kdtree(Mat(points).reshape(1), indexParams);
@@ -122,6 +119,7 @@ namespace pcseg
         for (int i=0;i<len;i++) idSeg[i] = i; // disjoint set as index counter
 
         while (isSegCount < len || !q.empty()) {
+            printf("isSegCount: %d\n",isSegCount);
             int seedPointId = -1;
             if (q.empty())
             {
@@ -149,11 +147,11 @@ namespace pcseg
                 {
                     idSeg[indices[i]] = idSeg[seedPointId];
                     if (curvatures[indices[i]] < curvatureThreshold && isSeg[indices[i]] == 0)
-                        {
-                            isSeg[indices[i]] = 1;
-                            isSegCount++;
-                            q.push(indices[i]);
-                        }
+                    {
+                        isSeg[indices[i]] = 1;
+                        isSegCount++;
+                        q.push(indices[i]);
+                    }
                 }
             }
         }
@@ -162,12 +160,12 @@ namespace pcseg
         std::map<int, std::vector<Point3f> > retNormals;
         for (int i=0;i<idSeg.size();i++)
         {
-            int idx = findFather(i); // disjoint set
+            int idx = findFather(idSeg, i); // disjoint set
             if (retPoints.find(idx) == retPoints.end())
             {
-                std::vector<int> tmp;
+                std::vector<Point3f> tmp;
                 retPoints[idx] = tmp;
-                std::vector<int> tmp2;
+                std::vector<Point3f> tmp2;
                 retNormals[idx] = tmp2;
                 // first point is plane center point and normal is plane normal
                 retPoints[idx].push_back(points[idx]);
@@ -182,18 +180,18 @@ namespace pcseg
         for ( it = retPoints.begin(); it != retPoints.end(); it++ )
         {
             int i = it->first;
-            vecRetPoints.push_back[retPoints[i]];
-            vecRetNormals.push_back[retNormals[i]];
+            vecRetPoints.push_back(retPoints[i]);
+            vecRetNormals.push_back(retNormals[i]);
         }
         return true;
     }
 
     bool planarMerge(
-        std::vector<Point3f>& pointsA,
-        std::vector<Point3f>& normalsA,
-        std::vector<Point3f>& pointsB,
-        std::vector<Point3f>& normalsB,
-        float disThreshold = 0.08)
+            std::vector<Point3f>& pointsA,
+            std::vector<Point3f>& normalsA,
+            std::vector<Point3f>& pointsB,
+            std::vector<Point3f>& normalsB,
+            float disThreshold = 0.08)
     {
         Point3f aCenter = pointsA[0];
         Point3f bCenter = pointsB[0];
@@ -223,18 +221,18 @@ namespace pcseg
     }
 
     bool growingPlanar(
-        std::vector< std::vector<Point3f> >& setPointsN,
-        std::vector< std::vector<Point3f> >& setNormalsN,
-        std::vector<float>& timestepsN,
-        std::vector< std::vector<Point3f> >& setPointsQ,
-        std::vector< std::vector<Point3f> >& setNormalsQ,
-        std::vector<float>& timestepsQ,
-        Point3f& curCameraPos,
-        float thetaThreshold,
-        float timestepThreshold,
-        float timestepDisThreshold,
-        std::vector< std::pair<int,int> >& retS
-        )
+            std::vector< std::vector<Point3f> >& setPointsN,
+            std::vector< std::vector<Point3f> >& setNormalsN,
+            std::vector<float>& timestepsN,
+            std::vector< std::vector<Point3f> >& setPointsQ,
+            std::vector< std::vector<Point3f> >& setNormalsQ,
+            std::vector<float>& timestepsQ,
+            Point3f& curCameraPos,
+            float thetaThreshold,
+            float timestepThreshold,
+            float timestepDisThreshold,
+            std::vector< std::pair<int,int> >& retS
+    )
     {
         retS.clear();
         std::vector<bool> finalQ(setPointsQ.size(), 0);
@@ -257,7 +255,7 @@ namespace pcseg
                                            setPointsN[i],
                                            setNormalsN[i]);
                     if (gotPlane) break;
-                        else R.push_back(j);
+                    else R.push_back(j);
                 }
             }
 
@@ -267,7 +265,7 @@ namespace pcseg
                 setPointsQ.push_back(setPointsN[i]);
                 setNormalsQ.push_back(setNormalsN[i]);
                 for (int j=0;j<R.size();j++)
-                    S.push_back(std::make_pair(i, R[j]))
+                    S.push_back(std::make_pair(i, R[j]));
             }
             // TODO remove from M
         }
@@ -297,17 +295,21 @@ namespace pcseg
 
 
 
+
     bool mergeCloseSegments(
-        std::vector< std::pair< std::vector<Point3f> ,std::vector<Point3f> > >& pointsS,
-        std::vector< std::pair< std::vector<Point3f> ,std::vector<Point3f> > >& normalsS,
-        std::vector<int> alphaS;
-        std::vector< std::vector<Point3f> >& setPointsQ,
-        std::vector< std::vector<Point3f> >& setNormalsQ,
-        std::vector<float>& timestepsQ
-        )
+            std::vector< std::pair< std::vector<Point3f> ,std::vector<Point3f> > >& pointsS,
+            std::vector< std::pair< std::vector<Point3f> ,std::vector<Point3f> > >& normalsS,
+            std::vector<int> alphaS,
+            std::vector< std::vector<Point3f> >& setPointsQ,
+            std::vector< std::vector<Point3f> >& setNormalsQ,
+            std::vector<float>& timestepsQ
+    )
     {
+        std::vector<bool> deletedS(pointsS.size(),0);
+
         for (int i=0;i<pointsS.size();i++)
         {
+            if (deletedS[i]) continue;
             bool gotPlane = 0;
             std::vector<Point3f>& pointsS1 = pointsS[i].first;
             std::vector<Point3f>& pointsS2 = pointsS[i].second;
@@ -327,8 +329,7 @@ namespace pcseg
             {
                 for (int j=0; j<setPointsQ.size(); j++)
                 {
-                    // TODO
-                    if (setPointsQ[j] == pointsS1)
+                    if (setPointsQ[j][0] == pointsS1[0])
                     {
                         setPointsQ[j].clear();
                         break;
@@ -338,27 +339,24 @@ namespace pcseg
                 for (int j=0; j<pointsS.size(); j++)
                 {
                     if (i == j) continue;
-                    std::vector<Point3f>& pointsSJ1 = pointsS[i].first;
-                    std::vector<Point3f>& pointsSJ2 = pointsS[i].second;
-                    std::vector<Point3f>& normalsSJ1 = normalsS[i].first;
-                    std::vector<Point3f>& normalsSJ2 = normalsS[i].second;
-                    // TODO
-                    if (pointsS1 == pointsSJ1)
+                    if (deletedS[j]) continue;
+                    std::vector<Point3f>& pointsSJ1 = pointsS[j].first;
+                    std::vector<Point3f>& pointsSJ2 = pointsS[j].second;
+                    std::vector<Point3f>& normalsSJ1 = normalsS[j].first;
+                    std::vector<Point3f>& normalsSJ2 = normalsS[j].second;
+                    if (pointsS1[0] == pointsSJ1[0])
                     {
                         pointsSJ1 = pointsS2;
                         normalsSJ1 = normalsS2;
                     }
-                    // TODO
-                    else if (pointsSJ2 == pointsS1)
+                    else if (pointsSJ2[0] == pointsS1[0])
                     {
                         pointsSJ2 = pointsS2;
                         normalsSJ2 = normalsS2;
                     }
-                    // TODO
-                    if (pointsSJ1 == pointsSJ2) {delete pointsS[j];delete normalsS[j];}
+                    if (pointsSJ1[0] == pointsSJ2[0]) deletedS[j] = 1;
                 }
-                // TODO
-                delete pointsS[i];delete normalsS[i];
+                deletedS[i] = 1;
             }
         }
         return true;
