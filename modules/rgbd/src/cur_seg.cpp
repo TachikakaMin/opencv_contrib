@@ -82,7 +82,7 @@ namespace pcseg
 
     int findFather(std::vector<int>& v, int x)
     {
-        if (v[x] != x) v[x] = findFather(v[x]);
+        if (v[x] != x) v[x] = findFather(v, v[x]);
         return x;
     }
 
@@ -200,7 +200,7 @@ namespace pcseg
         Point3f& normalA = normalsA[0];
         Point3f& normalB = normalsB[0];
         std::vector<int> indicesConcaveB;
-        convexHull(Mat(pointsB[i]), indicesConcaveB);
+        convexHull(Mat(pointsB), indicesConcaveB);
         for (int i=0;i<indicesConcaveB.size();i++)
         {
             Point3f h = pointsB[indicesConcaveB[i]];
@@ -233,12 +233,12 @@ namespace pcseg
         float thetaThreshold,
         float timestepThreshold,
         float timestepDisThreshold,
-        std::vector< pair<int,int> >& retS
+        std::vector< std::pair<int,int> >& retS
         )
     {
         retS.clear();
         std::vector<bool> finalQ(setPointsQ.size(), 0);
-        std::vector< pair<int,int> > S;
+        std::vector< std::pair<int,int> > S;
 
         int sizeN = setPointsN.size();
         int sizeQ = setPointsQ.size();
@@ -267,7 +267,7 @@ namespace pcseg
                 setPointsQ.push_back(setPointsN[i]);
                 setNormalsQ.push_back(setNormalsN[i]);
                 for (int j=0;j<R.size();j++)
-                    S.push_back(make_pair(i, R[j]))
+                    S.push_back(std::make_pair(i, R[j]))
             }
             // TODO remove from M
         }
@@ -298,8 +298,8 @@ namespace pcseg
 
 
     bool mergeCloseSegments(
-        std::vector< pair< std::vector<Point3f> ,std::vector<Point3f> > >& pointsS,
-        std::vector< pair< std::vector<Point3f> ,std::vector<Point3f> > >& normalsS,
+        std::vector< std::pair< std::vector<Point3f> ,std::vector<Point3f> > >& pointsS,
+        std::vector< std::pair< std::vector<Point3f> ,std::vector<Point3f> > >& normalsS,
         std::vector<int> alphaS;
         std::vector< std::vector<Point3f> >& setPointsQ,
         std::vector< std::vector<Point3f> >& setNormalsQ,

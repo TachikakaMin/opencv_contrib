@@ -10,6 +10,7 @@
 #include <queue>
 #include <cmath>
 #include <vector>
+#include <utility>
 #include <opencv2/surface_matching/ppf_helpers.hpp>
 #include <opencv2/core/mat.hpp>
 
@@ -47,12 +48,12 @@ namespace pcseg
             float ,
             float ,
             float ,
-            std::vector< pair<int,int> >&
+            std::vector< std::pair<int,int> >&
     );
     bool mergeCloseSegments(
-            std::vector< pair< std::vector<Point3f> ,std::vector<Point3f> > >& ,
-            std::vector< pair< std::vector<Point3f> ,std::vector<Point3f> > >& ,
-            std::vector<int> ;
+            std::vector< std::pair< std::vector<Point3f> ,std::vector<Point3f> > >& ,
+            std::vector< std::pair< std::vector<Point3f> ,std::vector<Point3f> > >& ,
+            std::vector<int> ,
             std::vector< std::vector<Point3f> >& ,
             std::vector< std::vector<Point3f> >& ,
             std::vector<float>&
