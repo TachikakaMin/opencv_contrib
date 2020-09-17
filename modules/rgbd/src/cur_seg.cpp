@@ -13,6 +13,9 @@ namespace pcseg
     {
         float len1 = sqrt(v1.x * v1.x + v1.y * v1.y + v1.z * v1.z);
         float len2 = sqrt(v2.x * v2.x + v2.y * v2.y + v2.z * v2.z);
+        if (len1 == 0 || len2 == 0){
+            std::cout << v1 << "   " << v2 << std::endl;
+        }
         float dot = v1.dot(v2);
         float a = dot / (len1 * len2);
 
@@ -24,8 +27,25 @@ namespace pcseg
             return acos(a); // 0..PI
     }
 
+    bool test_angleBetween()
+    {
+        Point3f p1(0,1,0);
+        Point3f p2(0,0,1);
+        printf("%f, Should be %f\n", angleBetween(p1,p2), M_PI/2);
+        p1 = Point3f(0,1,0);
+        p2 = Point3f(0,1,0);
+        printf("%f, Should be %f\n", angleBetween(p1,p2), 0.);
+        p1 = Point3f(1,1,0);
+        p2 = Point3f(-1,1,0);
+        printf("%f, Should be %f\n", angleBetween(p1,p2), M_PI/2);
+        p1 = Point3f(-1,0,0);
+        p2 = Point3f(1,1,0);
+        printf("%f, Should be %f\n", angleBetween(p1,p2), M_PI - M_PI/4);
+        return 1;
+    }
 
-    std::vector<float> calCurvatures(
+
+    bool calCurvatures(
             Mat& pointsWithNormal,
             int k,
             std::vector<Point3f>& points,
@@ -36,7 +56,7 @@ namespace pcseg
 
         int len = pointsWithNormal.size().height;
         int channel = pointsWithNormal.size().width;
-        printf("%d\n",len);
+        std::cout<<pointsWithNormal.size() << std::endl;
         if (channel < 6)
         {
             Mat pointsWithNormal2;
@@ -56,6 +76,8 @@ namespace pcseg
         }
         printf("Build KDTree\n");fflush(stdout);
         flann::KDTreeIndexParams indexParams;
+        std::cout<<points.size()<<std::endl;
+        std::cout<<Mat(points).reshape(1).size()<<std::endl;
         flann::Index kdtree(Mat(points).reshape(1), indexParams);
         printf("Build KDTree Done\n");fflush(stdout);
 
@@ -72,26 +94,44 @@ namespace pcseg
         for (int i=0; i<len;i++)
         {
             std::vector<Point3f> nearPoints;
-            for (int j=0;j<k;j++) {
-                printf("(%d, %d)indices: %d\n",i,j ,indices.at<int>(j,i));
-                nearPoints.push_back(normal[indices.at<int>(j,i)]);
-            }
+            for (int j=0;j<k;j++) nearPoints.push_back(normal[indices.at<int>(i,j)]);
             Mat pointMat = Mat(nearPoints).reshape(1);
             PCA pca(pointMat, Mat(), 0);
             int size = pca.eigenvalues.size().height;
             float a = pca.eigenvalues.at<float>(0);
             float b = pca.eigenvalues.at<float>(size/2);
             float c = pca.eigenvalues.at<float>(size-1);
-            curvatures.push_back(c/(a+b+c));
+            if (isnan(c/(a+b+c))) curvatures.push_back(1e6);
+            else curvatures.push_back(c/(a+b+c));
         }
-        return curvatures;
+        return 1;
     }
+
+
+    bool test_calCurvatures()
+    {
+        float data[3][6] = {
+                {0,0,1.1, 1.1,0,0},
+                {0,1.2,0, 0,1.2,0},
+                {1.3,0,0, 0,0,1.3}};
+        Mat A = Mat(3, 6, CV_32FC1, &data);
+        std::vector<Point3f> points;
+        std::vector<Point3f> normal;
+        std::vector<float> curvatures;
+        calCurvatures(A,3,points,normal,curvatures);
+        for (int i=0;i<curvatures.size();i++)
+            printf("%f ",curvatures[i]);
+        printf("\n");
+        return 0;
+    }
+
 
     int findFather(std::vector<int>& v, int x)
     {
         if (v[x] != x) v[x] = findFather(v, v[x]);
         return v[x];
     }
+
 
     bool planarSegments(
             std::vector<Point3f>& points,
@@ -104,13 +144,9 @@ namespace pcseg
             std::vector<std::vector<Point3f> >& vecRetNormals
     )
     {
-        printf("planarSegments start!\n");
-
         int len = points.size();
-
         flann::KDTreeIndexParams indexParams;
         flann::Index kdtree(Mat(points).reshape(1), indexParams);
-
 
         int isSegCount = 0;
         std::queue<int> q;
@@ -119,20 +155,21 @@ namespace pcseg
         for (int i=0;i<len;i++) idSeg[i] = i; // disjoint set as index counter
 
         while (isSegCount < len || !q.empty()) {
-            printf("isSegCount: %d\n",isSegCount);
             int seedPointId = -1;
             if (q.empty())
             {
-                float cur = 1e6;
+                float cur = 1e9;
                 for (int i=0;i<len;i++)
                     if (cur > curvatures[i] && isSeg[i] == 0) {seedPointId = i; cur = curvatures[i];}
-                isSeg[seedPointId] = 1;
-                isSegCount++;
+                if (seedPointId == -1) { for (int i=0;i<len;i++) if (isSeg[i] == 0) printf("%f\n", curvatures[i]); }
             }
             else {
                 seedPointId = q.front();
                 q.pop();
             }
+            isSegCount -= isSeg[seedPointId];
+            isSeg[seedPointId] = 1;
+            isSegCount++;
 
             std::vector<float> query;
             query.push_back(points[seedPointId].x);
@@ -141,18 +178,47 @@ namespace pcseg
             std::vector<int> indices;
             std::vector<float> dists;
             kdtree.knnSearch(query, indices, dists, k);
+
+
+            // auto compPriority = [] (std::pair<float, int> &a, std::pair<float, int> &b) -> bool { return a.first < b.first; };
+            // std::priority_queue<
+            //     std::pair<float, int>,
+            //     std::vector<std::pair<float, int> >,
+            //     decltype(compPriority) > knearest(compPriority);
+            // while (!knearest.empty()) knearest.pop();
+            // std::vector<int> indices;
+            // indices.clear();
+            // for (int i=0;i<len;i++)
+            // {
+            //     if (isSeg[i]) continue;
+            //     if (i == seedPointId) continue;
+            //     Point3f dis = points[seedPointId] - points[i];
+            //     float d = dis.dot(dis);
+            //     knearest.push(std::make_pair(d, i));
+            //     if (knearest.size() > k) knearest.pop();
+            // }
+            // while (!knearest.empty())
+            // {
+            //     indices.push_back(knearest.top().second);
+            //     knearest.pop();
+            // }
+
+
             for (int i=0;i<indices.size();i++)
             {
-                if (angleBetween(normals[seedPointId], normals[indices[i]]) < thetaThreshold)
+                if (isSeg[indices[i]] == 1) continue;
+                if (normals[indices[i]].dot(normals[indices[i]]) == 0) continue;
+                if (normals[seedPointId].dot(normals[seedPointId]) == 0) continue;
+                float ang = angleBetween(normals[seedPointId], normals[indices[i]]);
+                if (ang > M_PI/2) ang = M_PI - ang;
+                if (ang < thetaThreshold)
                 {
                     idSeg[indices[i]] = idSeg[seedPointId];
-                    if (curvatures[indices[i]] < curvatureThreshold && isSeg[indices[i]] == 0)
-                    {
-                        isSeg[indices[i]] = 1;
-                        isSegCount++;
-                        q.push(indices[i]);
-                    }
+                    isSeg[indices[i]] = 1;
+                    isSegCount++;
+                    if (curvatures[indices[i]] < curvatureThreshold) {q.push(indices[i]);}
                 }
+
             }
         }
 
@@ -183,6 +249,11 @@ namespace pcseg
             vecRetPoints.push_back(retPoints[i]);
             vecRetNormals.push_back(retNormals[i]);
         }
+        printf("vecRetPoints.size() : %lu\n", vecRetPoints.size());
+        printf("\n");
+        for (int i=0;i<idSeg.size();i++) printf("%d,",findFather(idSeg, i));
+        printf("\n");
+
         return true;
     }
 
@@ -293,9 +364,6 @@ namespace pcseg
         return true;
     }
 
-
-
-
     bool mergeCloseSegments(
             std::vector< std::pair< std::vector<Point3f> ,std::vector<Point3f> > >& pointsS,
             std::vector< std::pair< std::vector<Point3f> ,std::vector<Point3f> > >& normalsS,
@@ -329,6 +397,7 @@ namespace pcseg
             {
                 for (int j=0; j<setPointsQ.size(); j++)
                 {
+                    // TODO
                     if (setPointsQ[j][0] == pointsS1[0])
                     {
                         setPointsQ[j].clear();

@@ -19,23 +19,82 @@ public:
 
     ~CV_RgbdPLYDataInputTest() {
     }
+    bool test_angleBetween()
+    {
+        Point3f p1(0,1,0);
+        Point3f p2(0,0,1);
+        printf("%f, Should be %f\n", cv::pcseg::angleBetween(p1,p2), M_PI/2);
+        p1 = Point3f(0,1,0);
+        p2 = Point3f(0,1,0);
+        printf("%f, Should be %f\n", cv::pcseg::angleBetween(p1,p2), 0.);
+        p1 = Point3f(1,1,0);
+        p2 = Point3f(-1,1,0);
+        printf("%f, Should be %f\n", cv::pcseg::angleBetween(p1,p2), M_PI/2);
+        p1 = Point3f(-1,0,0);
+        p2 = Point3f(1,1,0);
+        printf("%f, Should be %f\n", cv::pcseg::angleBetween(p1,p2), M_PI - M_PI/4);
+        return 1;
+    }
+
+    bool test_calCurvatures()
+    {
+        float data[3][6] = {
+                {0,0,1.1, 1.1,0,0},
+                {0,1.2,0, 0,1.2,0},
+                {1.3,0,0, 0,0,1.3}};
+        Mat A = Mat(3, 6, CV_32FC1, &data);
+        std::vector<Point3f> points;
+        std::vector<Point3f> normal;
+        std::vector<float> curvatures;
+        cv::pcseg::calCurvatures(A,3,points,normal,curvatures);
+        for (int i=0;i<curvatures.size();i++)
+            printf("%f ",curvatures[i]);
+        printf("\n");
+        return 0;
+    }
+
+    bool test_planarSegments()
+    {
+        // std::vector<Point3f> points = {
+        //     {  0,   0,   1},
+        //     {  0,   0,   2},
+        //     {  0,   0,   3},
+
+        //     {100,   0,   1},
+        //     {100,   0,   2},
+        //     {100,   0,   3}};
+        // std::vector<Point3f> normals = {
+        //     {  0,   0,   1},
+        //     {  0,   0,   1},
+        //     {  0,   0,   1},
+
+        //     {1,   0,   0},
+        //     {1,   0,   0},
+        //     {1,   0,   0}};
+        float data[6][6] = {
+                {  0,   0,   1,   0,   0,   1},
+                {  0,   0,   2,   0,   0,   1},
+                {  0,   0,   3,   0,   0,   1},
+                {100,   0,   1,   0,   0,   1},
+                {100,   0,   2,   0,   0,   1},
+                {100,   0,   3,   0,   0,   1}};
+        Mat A = Mat(3, 6, CV_32FC1, &data);
+        int k = 4;
+        std::vector<Point3f> points;
+        std::vector<Point3f> normal;
+        std::vector<float> curvatures;
+        cv::pcseg::calCurvatures(A,k,points,normal,curvatures);
+        std::vector<std::vector<Point3f> > vecRetPoints;
+        std::vector<std::vector<Point3f> > vecRetNormals;
+        cv::pcseg::planarSegments(points, normal, curvatures, k, 10.0/360*2*M_PI, 0.1, vecRetPoints, vecRetNormals);
+        return 1;
+    }
 
 protected:
     void
     run(int) {
         try {
-            cv::Mat points, colors;
-
-            // 3D coordinates matrix (Nx3; x,y,z floats format),
-            // color associated with each vertex (coordinate matrix) OpenCV BGR format (3 channel Nx1 mat),
-            // Path to input file
-            ts->printf(cvtest::TS::LOG, "\n PATH:  %s\n", fs::current_path());
-            std::string filename_tmp =  std::string(TS::ptr()->get_data_path()) + "rgbd/pcseg/living-room.ply";
-            ts->printf(cvtest::TS::LOG, "\n TYM:  %s\n", filename_tmp.c_str());
-            const char* filename = filename_tmp.c_str();
-            points = cv::ppf_match_3d::loadPLYSimple(filename, 1);
-            std::cout << points.size() << std::endl; // Remove this line for large datasets
-
+            test_angleBetween();
         } catch (...) {
             ts->set_failed_test_info(cvtest::TS::FAIL_MISMATCH);
         }
