@@ -27,24 +27,6 @@ namespace pcseg
             return acos(a); // 0..PI
     }
 
-    bool test_angleBetween()
-    {
-        Point3f p1(0,1,0);
-        Point3f p2(0,0,1);
-        printf("%f, Should be %f\n", angleBetween(p1,p2), M_PI/2);
-        p1 = Point3f(0,1,0);
-        p2 = Point3f(0,1,0);
-        printf("%f, Should be %f\n", angleBetween(p1,p2), 0.);
-        p1 = Point3f(1,1,0);
-        p2 = Point3f(-1,1,0);
-        printf("%f, Should be %f\n", angleBetween(p1,p2), M_PI/2);
-        p1 = Point3f(-1,0,0);
-        p2 = Point3f(1,1,0);
-        printf("%f, Should be %f\n", angleBetween(p1,p2), M_PI - M_PI/4);
-        return 1;
-    }
-
-
     bool calCurvatures(
             Mat& pointsWithNormal,
             int k,
@@ -105,24 +87,6 @@ namespace pcseg
             else curvatures.push_back(c/(a+b+c));
         }
         return 1;
-    }
-
-
-    bool test_calCurvatures()
-    {
-        float data[3][6] = {
-                {0,0,1.1, 1.1,0,0},
-                {0,1.2,0, 0,1.2,0},
-                {1.3,0,0, 0,0,1.3}};
-        Mat A = Mat(3, 6, CV_32FC1, &data);
-        std::vector<Point3f> points;
-        std::vector<Point3f> normal;
-        std::vector<float> curvatures;
-        calCurvatures(A,3,points,normal,curvatures);
-        for (int i=0;i<curvatures.size();i++)
-            printf("%f ",curvatures[i]);
-        printf("\n");
-        return 0;
     }
 
 
@@ -257,6 +221,48 @@ namespace pcseg
         return true;
     }
 
+
+
+    bool from3dTo2dPlane(
+            std::vector<Point3f>& points,
+            std::vector<Point3f>& normals,
+            std::vector<Point2f >& twodPoints)
+    {
+        Point3f eye = points[0];
+        Point3f target = normals[0] + eye;
+        Point3f up(0,0,1);
+
+        Point3f forward = target - eye;
+        forward /= norm(forward);
+
+        Point3f side = forward.cross(up);
+        side /= norm(side);
+        up = side.cross(forward);
+        up /= norm(up);
+
+        float plusx, plusy;
+        plusx = -side.dot(eye);
+        plusy = -up.dot(eye);
+        for (int i=0;i<points.size();i++)
+        {
+            Point2f tmp;
+            float x = side.dot(points[i]) + plusx;
+            float y = up.dot(points[i]) + plusy;
+            tmp.x = x;
+            tmp.y = y;
+            twodPoints.push_back(tmp);
+        }
+
+        // std::vector<std::vector<float> > data = {
+        //     {side.x, up.x, -forward.x, 0},
+        //     {side.y, up.y, -forward.y, 0},
+        //     {side.z, up.z, -forward.z, 0},
+        //     {-side.dot(eye), -up.dot(eye), forward.dot(eye), 1.}
+        // };
+        // Mat lookAtMat = Mat(4, 4, CV_32F, &data);
+        return 1;
+    }
+
     bool planarMerge(
             std::vector<Point3f>& pointsA,
             std::vector<Point3f>& normalsA,
@@ -268,8 +274,24 @@ namespace pcseg
         Point3f bCenter = pointsB[0];
         Point3f& normalA = normalsA[0];
         Point3f& normalB = normalsB[0];
+
+        std::vector<Point2f > twodPoints;
+
+        from3dTo2dPlane(pointsB, normalsB, twodPoints);
+
         std::vector<int> indicesConcaveB;
-        convexHull(Mat(pointsB), indicesConcaveB);
+        convexHull(Mat(twodPoints), indicesConcaveB);
+
+        std::vector<std::array<float, 2> > concavePoints;
+        for (int i=0;i<twodPoints.size();i++)
+        {
+            std::array<float, 2> tmp;
+            tmp[0] = twodPoints[i].x;
+            tmp[1] = twodPoints[i].y;
+            concavePoints.push_back(tmp);
+        }
+        auto concave = concaveman<float, 16>(concavePoints, indicesConcaveB, 2, 1);
+
         for (int i=0;i<indicesConcaveB.size();i++)
         {
             Point3f h = pointsB[indicesConcaveB[i]];
@@ -290,6 +312,7 @@ namespace pcseg
         }
         return false;
     }
+
 
     bool growingPlanar(
             std::vector< std::vector<Point3f> >& setPointsN,
@@ -364,6 +387,9 @@ namespace pcseg
         return true;
     }
 
+
+
+
     bool mergeCloseSegments(
             std::vector< std::pair< std::vector<Point3f> ,std::vector<Point3f> > >& pointsS,
             std::vector< std::pair< std::vector<Point3f> ,std::vector<Point3f> > >& normalsS,
@@ -430,6 +456,8 @@ namespace pcseg
         }
         return true;
     }
+
+
 
 }
 }

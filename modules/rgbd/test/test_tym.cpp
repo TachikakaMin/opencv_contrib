@@ -90,6 +90,54 @@ public:
         return 1;
     }
 
+    bool test_planarMerge()
+    {
+        std::vector<Point3f> pointsA = {
+                {  0,   0,   1},
+                {  0,   0,   1},
+                {  0,   0,   2},
+                {  0,   0,   3},
+
+                {100,   0,   1},
+                {100,   0,   2},
+                {100,   0,   3}};
+        std::vector<Point3f> normalsA = {
+                {  0,   0,   1},
+                {  0,   0,   1},
+                {  0,   0,   1},
+                {  0,   0,   1},
+
+                {1,   0,   0},
+                {1,   0,   0},
+                {1,   0,   0},
+                {1,   0,   0}};
+
+        std::vector<Point3f> pointsB = {
+                {  0,   0,   4},
+                {  0,   0,   4},
+                {  0,   0,   5},
+                {  0,   0,   6},
+
+                {104,   1,   1},
+                {104,   1,   1},
+                {105,   1,   2},
+                {106,   1,   3}};
+        std::vector<Point3f> normalsB = {
+                {  0,   0,   1},
+                {  0,   0,   1},
+                {  0,   0,   1},
+                {  0,   0,   1},
+
+                {1,   0,   0},
+                {1,   0,   0},
+                {1,   0,   0},
+                {1,   0,   0}};
+
+        planarMerge(pointsA, normalsA, pointsB, normalsB, 10);
+        return 1;
+
+    }
+
 protected:
     void
     run(int) {
