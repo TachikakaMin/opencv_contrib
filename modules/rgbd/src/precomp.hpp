@@ -14,6 +14,12 @@
 #include <list>
 #include <set>
 #include <limits>
+#include <vector>
+#include <cmath>
+#include <cstring>
+#include <queue>
+#include <algorithm>
+#include <cstdio>
 
 #include "opencv2/core/utility.hpp"
 #include "opencv2/core/private.hpp"
